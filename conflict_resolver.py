@@ -60,6 +60,26 @@ def _empty_result() -> dict:
     }
 
 
+def _build_multi_result(rules: list, applied_type: str, disabled: set) -> dict:
+    produces = {
+        "verdict": " و ".join([_get_produces(r).get("verdict", "") for r in rules]),
+        "article_number": " و ".join([str(_get_produces(r).get("article_number", "")) for r in rules]),
+        "law": rules[0].get("produces", {}).get("law", "") if rules else ""
+    }
+    return {
+        "has_conflict":   True,
+        "conflict_rule":  " + ".join([r.get("name") or r.get("rule", "") for r in rules]),
+        "final_verdict":  produces,
+        "article":        produces.get("article_number"),
+        "law":            produces.get("law"),
+        "modifier":       None,
+        "reason":         "تعدد جرائم",
+        "disabled_rules": sorted(disabled),
+        "applied_type":   applied_type,
+        "confidence":     max([_get_produces(r).get("confidence", 0.9) for r in rules]) if rules else 0.9,
+    }
+
+
 def _run_engine(all_matched: dict) -> dict:
     # Sort every group by priority (highest first)
     for group in all_matched.values():
@@ -100,7 +120,19 @@ def _run_engine(all_matched: dict) -> dict:
         if r["name"] not in disabled
     ]
     if active_normals:
-        return _build_result(active_normals[0], "normal", disabled)
+        # Avoid duplicate categories (keep highest priority only for each category)
+        unique_cats = set()
+        final_rules = []
+        for r in active_normals:
+            cat = r.get("category", "")
+            if cat not in unique_cats:
+                unique_cats.add(cat)
+                final_rules.append(r)
+
+        if len(final_rules) == 1:
+            return _build_result(final_rules[0], "normal", disabled)
+        else:
+            return _build_multi_result(final_rules, "normal", disabled)
 
     return _empty_result()
 

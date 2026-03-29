@@ -39,13 +39,15 @@ def extract_state_from_text(case_text):
     # 1. Intent & Circumstances (with confidence scores)
     if not negated_intent and re.search(r"عمد|قصد|قاصد|بنية|تعمد|أزهق|ازهق|أقدم على|اقدم على", clean_text, re.I):
         state["intent"] = make_true(0.9)
-    if re.search(r"سبق اصرار|ترصد|خطط|دبر|premeditation", clean_text, re.I): 
+    if re.search(r"سبق اصرار|سبق الاصرار|ترصد|خطط|دبر|انتقام|ثأر|premeditation", clean_text, re.I): 
         state["premeditation"] = make_true(0.95)
         state["intent"] = make_true(0.95)
 
     if re.search(r"اهمال|رعونة|غير عمد|خطا|دون قصد|negligence", clean_text, re.I): state["negligence"] = make_true(0.9)
-    if re.search(r"دفاع شرعي|دافع عن نفسه|self defense", clean_text, re.I): state["self_defense"] = make_true(0.95)
+    if re.search(r"دفاع شرعي|دفاع[\s\w]{0,15}عن نفسه|دافع عن نفسه|سحب سلاح|رد الهجوم|هجم عليه فـ|self defense", clean_text, re.I): state["self_defense"] = make_true(0.95)
     if re.search(r"خطر|هجم|سيقتل|يقتل|يهدد|داهم|مهاجم|سكين", clean_text, re.I): state["imminent_danger"] = make_true(0.9)
+    if re.search(r"فاصل زمني|بعد دقائق|عاد بعد|عقب انصراف|لاحقا|بعد فترة", clean_text, re.I): state["temporal_gap"] = make_true(0.95)
+    if re.search(r"انتقام|ثأر|تأديب|retaliation", clean_text, re.I): state["retaliation"] = make_true(0.95)
 
     if re.search(r"كره|قوة|غصب|تهديد|force", clean_text, re.I): state["by_force"] = make_true(0.85)
     if re.search(r"ليلا|ليل|night", clean_text, re.I): state["at_night"] = make_true(0.95)
@@ -57,12 +59,13 @@ def extract_state_from_text(case_text):
     # 2. Crimes
     if re.search(r"قتل|ازهق|حياة|بقتل|قتله|قتلته|جثة|murder|kill", clean_text, re.I): state["murder"] = make_true(0.95)
     if re.search(r"ضرب|جرح|اعتداء|ايذاء|اعتدى|hurt|assault", clean_text, re.I): state["assault"] = make_true(0.9)
-    if re.search(r"سرق|اختلس|نهب|theft|rob|stolen", clean_text, re.I): state["theft"] = make_true(0.95)
-    if re.search(r"تزوير|زور|forgery|forge", clean_text, re.I): state["forgery"] = make_true(0.95)
+    if re.search(r"سرق|سارق|مسروق|اختلس|نهب|استولى|أخذ|theft|rob|stolen", clean_text, re.I): state["theft"] = make_true(0.95)
+    if re.search(r"تزوير|زور|تغيير بيانات|تبديل حقائق|محرر رسمي|سجل|forgery|forge", clean_text, re.I): state["forgery"] = make_true(0.95)
     if re.search(r"خطف|اختطاف|kidnap", clean_text, re.I): state["kidnapping"] = make_true(0.95)
     if re.search(r"حريق|اشعل|نار|أشعل|burned|fire|arson", clean_text, re.I): state["arson"] = make_true(0.9)
     if re.search(r"سلاح|مسدس|سكين|الة حادة|weapon|gun|knife", clean_text, re.I): state["weapon_used"] = make_true(0.9)
     if re.search(r"موظف عام|وظيفته|رسمي|public official", clean_text, re.I): state["public_official"] = make_true(0.9)
+    if re.search(r"شرع|حاول|بدأ في|عدم اتمام|لم يكمل|attempt", clean_text, re.I): state["attempted"] = make_true(0.9)
 
     if re.search(r"بليغة|جسيمة|شديدة|عاهة|severe|disability", clean_text, re.I):
         state["severe_injury"] = make_true(0.85)
@@ -76,13 +79,14 @@ def extract_state_from_text(case_text):
     if re.search(r"تعويض|يطالب|مطالبة|compensation|reparation", clean_text, re.I): state["reparation"] = make_true(0.9)
 
     # 4. Procedural
-    if re.search(r"بطلان|باطل|بدون اذن|بغير اذن|دون اذن|بلا اذن|void|null|nullity", clean_text, re.I):
-        if re.search(r"فسخ|عقد", clean_text): state["nullity"] = make_true(0.9)
+    if re.search(r"بطلان|باطل|بدون اذن|بغير اذن|دون اذن|بلا اذن|اخلال|مخالفة العقد|breach|fail to complete|void|null|nullity", clean_text, re.I):
+        if re.search(r"فسخ|عقد|contract|agreement", clean_text, re.I): state["nullity"] = make_true(0.9)
         else: state["nullity_procedural"] = make_true(0.9)
     if re.search(r"فسخ|إنهاء عقد", clean_text, re.I): state["nullity"] = make_true(0.9)
     if re.search(r"تفتيش|فتش|ضبط|search|seizure", clean_text, re.I): state["search"] = make_true(0.9)
     if re.search(r"تقادم|انقض|مضي مدة|expiration|prescription", clean_text, re.I): state["expiration"] = make_true(0.95)
     if re.search(r"دليل|ادلة|وجدوا|ضبط|عثر|evidence", clean_text, re.I): state["evidence"] = make_true(0.8)
+    if re.search(r"أقر|اعترف|اعتراف|أدلى باعتراف|confess", clean_text, re.I): state["confession"] = make_true(0.95)
     if re.search(r"حالة ضرورة|ضرورة قصوى|إكراه|اكراه|اضطر|إضطرار|necessity|duress", clean_text, re.I): state["necessity"] = make_true(0.9)
 
     # Defaults (False for any unset key)
@@ -92,7 +96,8 @@ def extract_state_from_text(case_text):
         "group", "public_official", "minor_victim", "weapon_used", "severe_injury",
         "permanent_disability", "from_residence", "civil_fault", "injury", "contract",
         "reparation", "nullity", "nullity_procedural", "search", "expiration",
-        "evidence", "necessity", "premeditation"
+        "evidence", "necessity", "premeditation", "attempted",
+        "temporal_gap", "retaliation", "confession"
     ]
     for k in all_keys:
         if k not in state: state[k] = make_false()

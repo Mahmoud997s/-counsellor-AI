@@ -173,6 +173,115 @@ TEST_CASES = [
         "expected_facts": ["theft", "group", "at_night", "assault", "necessity"],
         "category": "Global Override"
     },
+
+    # ════ قضايا متنوعة جديدة (T20-T29) ════
+    {
+        "id": "T20",
+        "case": "شرع المتهم في قتل الضحية بسكين لكن الناس أوقفوه قبل إتمام الجريمة",
+        "expected_verdict_contains": "السجن المشدد",
+        "expected_facts": ["murder", "attempted", "weapon_used"],
+        "category": "شروع"
+    },
+    {
+        "id": "T21",
+        "case": "ضرب المتهم جاره وسرق منه حافظة نقوده بالقوة في الطريق العام",
+        "expected_verdict_contains": "المؤبد", # سرقة مشددة (By Force)
+        "expected_facts": ["theft", "assault", "by_force"],
+        "category": "سرقة بالإكراه"
+    },
+    {
+        "id": "T22",
+        "case": "سرق المتهم قطعة خبز من السوبر ماركت وفر هارباً",
+        "expected_verdict_contains": "حبس", # سرقة بسيطة
+        "expected_facts": ["theft"],
+        "category": "سرقة بسيطة"
+    },
+    {
+        "id": "T23",
+        "case": "اعتدى عليه بالضرب المبرح مما أدى لكسر في ذراعه (عاهة)",
+        "expected_verdict_contains": "سجن", # ضرب مغلظ
+        "expected_facts": ["assault", "permanent_disability"],
+        "category": "اعتداء جسيم"
+    },
+    {
+        "id": "T24",
+        "case": "يطالب المدعي بتعويض عادل عن الأضرار المادية والأدبية التي لحقت به",
+        "expected_verdict_contains": "تعويض",
+        "expected_facts": ["reparation"],
+        "category": "مدني - تعويض"
+    },
+    {
+        "id": "T25",
+        "case": "الموظف العام قام بتغيير بيانات رسمية في السجلات الحكومية",
+        "expected_verdict_contains": "المؤبد", # تزوير رسمي
+        "expected_facts": ["forgery", "public_official"],
+        "category": "تزوير موظف"
+    },
+    {
+        "id": "T26",
+        "case": "تم تفتيش المتهم بدون إذن قضائي وضبطت معه أدلة جريمة، ولكن الجريمة ارتكبت منذ أكثر من 20 عاماً (تقادم)",
+        "expected_verdict_contains": "انقضاء", # التقادم يسبق البطلان في الترتيب أو كلاهما يغلق الدعوى
+        "expected_facts": ["search", "evidence", "expiration"],
+        "category": "تعدد إجرائي"
+    },
+    {
+        "id": "T27",
+        "case": "هجم اللص على صاحب المنزل بسكين، فقام صاحب المنزل بسحب سلاح اللص وقتله به",
+        "expected_verdict_contains": "البراءة",
+        "expected_facts": ["murder", "self_defense", "imminent_danger", "weapon_used"],
+        "category": "دفاع معقد"
+    },
+    {
+        "id": "T28",
+        "case": "The contractor failed to complete the building as per the agreement, leading to a lawsuit for breach of contract.",
+        "expected_verdict_contains": "فسخ",
+        "expected_facts": ["contract", "nullity"],
+        "category": "Civil EN - Breach"
+    },
+    {
+        "id": "T29",
+        "case": "أجبره المجرمون تحت تهديد السلاح على سرقة خزينة البنك (إكراه/ضرورة)",
+        "expected_verdict_contains": "البراءة",
+        "expected_facts": ["theft", "by_force", "necessity"],
+        "category": "سرقة تحت الإكراه"
+    },
+
+    # ════ قضايا الإصدار v2.5 (T30-T34) ════
+    {
+        "id": "T30",
+        "case": "هجم عليه اللص بسكين في ورشته، فقام بطعنه فوراً بسكين للدفاع عن نفسه وقتله",
+        "expected_verdict_contains": "البراءة",
+        "expected_facts": ["murder", "self_defense", "imminent_danger"],
+        "category": "دفاع شرعي سليم"
+    },
+    {
+        "id": "T31",
+        "case": "ضربه جاره بزجاجة، فذهب المتهم وعاد بعد فترة زمنية لاحقا ومعه مسدس وقتله للثأر والانتقام",
+        "expected_verdict_contains": "الإعدام", # انتقام + فاصل زمني يبطل الدفاع
+        "expected_facts": ["murder", "assault", "weapon_used", "temporal_gap", "retaliation"],
+        "category": "انتقام وتجاوز"
+    },
+    {
+        "id": "T32",
+        "case": "تم تفتيش شقته بدون إذن وعثروا على أدلة تدينه، ورغم ذلك اعترف المتهم بالجريمة",
+        "expected_verdict_contains": "باطل", # الإجراء الباطل هو final=True فيسقط الاعتراف
+        "expected_facts": ["search", "nullity_procedural", "evidence", "confession"],
+        "category": "اعتراف مع بطلان"
+    },
+    {
+        "id": "T33",
+        "case": "تم استدراجه وتهديده بإيذاء أسرته (إكراه) فنقل البضاعة المسروقة رغم اعترافه بذلك",
+        "expected_verdict_contains": "البراءة", # حالة ضرورة تغلب
+        "expected_facts": ["theft", "necessity", "confession"],
+        "category": "إكراه جاد"
+    },
+    {
+        "id": "T34",
+        "case": "في مشاجرة، قتل الأول شخصاً بسكين مع سبق الإصرار، وضرب الثاني محدثاً به عاهة مستديمة",
+        "expected_verdict_contains": "الإعدام", # بسبب تعدد الجرائم نتوقع ظهور العقوبتين أو دمج النص
+        "expected_facts": ["murder", "assault", "permanent_disability", "weapon_used"],
+        "category": "تعدد الأحكام"
+    },
 ]
 
 # =============================================

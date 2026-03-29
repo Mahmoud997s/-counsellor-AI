@@ -17,16 +17,19 @@ def seed_golden_rules_final():
         {"num": "234", "law": "قانون العقوبات",  "title": "القتل العمد البسيط",       "text": "بالسجن المؤبد."},
         {"num": "236", "law": "قانون العقوبات",  "title": "الضرب المفضي إلى موت",    "text": "بالسجن المشدد."},
         {"num": "241", "law": "قانون العقوبات",  "title": "الضرب المغلظ",             "text": "بالسجن."},
+        {"num": "242", "law": "قانون العقوبات",  "title": "الضرب البسيط",             "text": "بالحبس أو الغرامة."},
         {"num": "245", "law": "قانون العقوبات",  "title": "الدفاع الشرعي",            "text": "لا عقاب."},
         {"num": "252", "law": "قانون العقوبات",  "title": "الحريق العمد",             "text": "بالسجن المؤبد."},
         {"num": "290", "law": "قانون العقوبات",  "title": "الخطف",                    "text": "بالسجن المؤبد."},
         {"num": "317", "law": "قانون العقوبات",  "title": "السرقة المشددة",           "text": "بالسجن."},
+        {"num": "318", "law": "قانون العقوبات",  "title": "السرقة البسيطة",           "text": "بالحبس."},
         {"num": "211", "law": "قانون العقوبات",  "title": "تزوير رسمي",               "text": "بالسجن المؤبد."},
         {"num": "62",  "law": "قانون العقوبات",  "title": "حالة الضرورة",             "text": "لا عقاب."},
         {"num": "163", "law": "القانون المدني",  "title": "التعويض",                  "text": "يلزم بالتعويض."},
         {"num": "157", "law": "القانون المدني",  "title": "الفسخ",                    "text": "يجوز الفسخ."},
         {"num": "15",  "law": "قانون الإجراءات", "title": "التقادم",                  "text": "تنقضي الدعوى."},
         {"num": "331", "law": "قانون الإجراءات", "title": "البطلان",                  "text": "يترتب البطلان."},
+        {"num": "25",  "law": "قانون الأسلحة والذخائر", "title": "حيازة سلاح",         "text": "بالسجن."}
     ]
 
     am = {}  # article_mapping: num → db_id
@@ -79,7 +82,8 @@ def seed_golden_rules_final():
             "category": "defense",
             "overrides": ["*"],   # Global — disables ALL normal/exception rules
             "conditions": [{"fact": "self_defense", "value": True},
-                           {"fact": "imminent_danger", "value": True}],
+                           {"fact": "imminent_danger", "value": True},
+                           {"fact": "temporal_gap", "value": False}],
             "produces": {"verdict": "البراءة - فعل مباح بالدفاع الشرعي",
                          "article_number": "245", "law": "قانون العقوبات", "confidence": 0.98}}},
 
@@ -117,6 +121,17 @@ def seed_golden_rules_final():
                            {"fact": "intent", "value": True}],
             "produces": {"verdict": "الإعدام",
                          "article_number": "234", "law": "قانون العقوبات", "confidence": 0.99}}},
+
+        {"name": "الشروع في القتل", "art": "234", "logic": {
+            "type": "normal", "priority": 97,
+            "domain": "criminal", "law_type": "penal_code",
+            "rule_type": "homicide", "pack": "criminal_pack_v1",
+            "category": "violent_crimes",
+            "overrides": [],
+            "conditions": [{"fact": "murder", "value": True},
+                           {"fact": "attempted", "value": True}],
+            "produces": {"verdict": "السجن المشدد",
+                         "article_number": "234", "law": "قانون العقوبات", "confidence": 0.95}}},
 
         {"name": "الضرب المفضي لموت", "art": "236", "logic": {
             "type": "normal", "priority": 97,
@@ -160,6 +175,16 @@ def seed_golden_rules_final():
             "conditions": [{"fact": "arson", "value": True}],
             "produces": {"verdict": "سجن",
                          "article_number": "252", "law": "قانون العقوبات", "confidence": 0.95}}},
+
+        {"name": "السرقة بالإكراه", "art": "317", "logic": {
+            "type": "normal", "priority": 91,
+            "domain": "criminal", "law_type": "penal_code",
+            "rule_type": "theft", "pack": "criminal_pack_v1",
+            "category": "property_crimes",
+            "overrides": [],
+            "conditions": [{"fact": "theft", "value": True}, {"fact": "by_force", "value": True}],
+            "produces": {"verdict": "السجن المؤبد",
+                         "article_number": "317", "law": "قانون العقوبات", "confidence": 0.98}}},
 
         {"name": "السرقة المشددة", "art": "317", "logic": {
             "type": "normal", "priority": 90,
@@ -205,6 +230,17 @@ def seed_golden_rules_final():
             "produces": {"verdict": "سجن",
                          "article_number": "241", "law": "قانون العقوبات", "confidence": 0.93}}},
 
+        {"name": "حيازة سلاح بدون ترخيص", "art": "25", "logic": {
+            "type": "normal", "priority": 83,
+            "domain": "criminal", "law_type": "weapons_law",
+            "rule_type": "weapon_possession", "pack": "criminal_pack_v1",
+            "category": "weapon_crimes",
+            "overrides": [],
+            "conditions": [{"fact": "weapon_used", "value": True}],
+            "produces": {"verdict": "سجن",
+                         "article_number": "25", "law": "قانون الأسلحة والذخائر", "confidence": 0.95}}},
+
+
         # ══════════════════════════════════════════════════
         # CIVIL PACK — NORMAL rules
         # ══════════════════════════════════════════════════
@@ -239,6 +275,26 @@ def seed_golden_rules_final():
                            {"fact": "injury", "value": True}],
             "produces": {"verdict": "إلزام المتسبب بالتعويض الجابر للضرر",
                          "article_number": "163", "law": "القانون المدني", "confidence": 0.93}}},
+
+        {"name": "سرقة بسيطة", "art": "318", "logic": {
+            "type": "normal", "priority": 70,
+            "domain": "criminal", "law_type": "penal_code",
+            "rule_type": "theft", "pack": "criminal_pack_v1",
+            "category": "property_crimes",
+            "overrides": [],
+            "conditions": [{"fact": "theft", "value": True}],
+            "produces": {"verdict": "حبس",
+                         "article_number": "318", "law": "قانون العقوبات", "confidence": 0.9}}},
+
+        {"name": "ضرب بسيط", "art": "242", "logic": {
+            "type": "normal", "priority": 60,
+            "domain": "criminal", "law_type": "penal_code",
+            "rule_type": "assault", "pack": "criminal_pack_v1",
+            "category": "assault_crimes",
+            "overrides": [],
+            "conditions": [{"fact": "assault", "value": True}],
+            "produces": {"verdict": "حبس أو غرامة",
+                         "article_number": "242", "law": "قانون العقوبات", "confidence": 0.85}}},
     ]
 
     for r in rules:

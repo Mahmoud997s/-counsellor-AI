@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/master/icons/law.svg" width="120" alt="Counselor AI Logo">
+  <img src="assets/logo.png" width="300" alt="Counselor AI Logo">
 </p>
 
 <h1 align="center">Counselor AI (Digital Judge)</h1>

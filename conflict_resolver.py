@@ -10,8 +10,15 @@ Pipeline:
 
 
 def _get_produces(rule: dict) -> dict:
-    """Support both 'produces' (new) and 'outcomes' (legacy)."""
-    return rule.get("produces") or rule.get("outcomes") or {}
+    """Support 'produces' (legacy), 'outcomes' (legacy), and flattened (v6.3) structures."""
+    if "produces" in rule:
+        return rule["produces"]
+    if "outcomes" in rule:
+        return rule["outcomes"]
+    # If flattened, the rule itself contains the verdict fields
+    if "verdict" in rule:
+        return rule
+    return {}
 
 
 def _apply_overrides(rule: dict, all_matched: dict, disabled: set):
@@ -35,7 +42,7 @@ def _apply_overrides(rule: dict, all_matched: dict, disabled: set):
             disabled.add(target)  # Named — safe fallback, ignore if not found
 
 
-def _build_result(rule: dict, applied_type: str, disabled: set) -> dict:
+def _build_result(rule: dict, applied_type: str, disabled: set, procedural_notes: list = None) -> dict:
     produces = _get_produces(rule)
     return {
         "has_conflict":   True,
@@ -48,6 +55,8 @@ def _build_result(rule: dict, applied_type: str, disabled: set) -> dict:
         "disabled_rules": sorted(disabled),
         "applied_type":   applied_type,
         "confidence":     produces.get("confidence", 0.9),
+        "suppress_origin": rule.get("suppress_origin", []),
+        "procedural_notes": procedural_notes or [] # v7.2 Clean separation
     }
 
 
@@ -57,70 +66,122 @@ def _empty_result() -> dict:
         "final_verdict": None, "article": None, "law": None,
         "modifier": None, "reason": None,
         "disabled_rules": [], "applied_type": None,
+        "reasoning_trace": [],
+        "procedural_notes": [] # v7.2
     }
 
 
-def _build_multi_result(rules: list, applied_type: str, disabled: set) -> dict:
-    produces = {
-        "verdict": " و ".join([_get_produces(r).get("verdict", "") for r in rules]),
-        "article_number": " و ".join([str(_get_produces(r).get("article_number", "")) for r in rules]),
-        "law": rules[0].get("produces", {}).get("law", "") if rules else ""
-    }
+def _build_multi_result(rules: list, applied_type: str, disabled: set, procedural_notes: list = None) -> dict:
+    """v7.2: Judicial Subsumption — Pick the single highest priority rule."""
+    if not rules: return _empty_result()
+    
+    # Rules are already sorted by priority in _run_engine
+    primary = rules[0]
+    produces = _get_produces(primary)
+    
+    # Capture secondary rules as reason
+    secondaries = [r.get("name") for r in rules[1:]]
+    reason_text = "تعدد جرائم"
+    if secondaries:
+        reason_text += f" (مرتبط بـ: {', '.join(secondaries)})"
+
     return {
         "has_conflict":   True,
-        "conflict_rule":  " + ".join([r.get("name") or r.get("rule", "") for r in rules]),
+        "conflict_rule":  primary.get("name") or primary.get("rule", ""),
         "final_verdict":  produces,
         "article":        produces.get("article_number"),
         "law":            produces.get("law"),
         "modifier":       None,
-        "reason":         "تعدد جرائم",
+        "reason":         reason_text,
         "disabled_rules": sorted(disabled),
         "applied_type":   applied_type,
-        "confidence":     max([_get_produces(r).get("confidence", 0.9) for r in rules]) if rules else 0.9,
+        "confidence":     produces.get("confidence", 0.9),
+        "procedural_notes": procedural_notes or []
     }
 
 
-def _run_engine(all_matched: dict) -> dict:
+def _run_engine(all_matched: dict, state: dict = None) -> dict:
     # Sort every group by priority (highest first)
     for group in all_matched.values():
         group.sort(key=lambda r: r.get("priority", 0), reverse=True)
 
     disabled = set()
+    trace = []
+    
+    fact_ledger = state.get("facts", {}) if state else {}
+
+    def is_burden_met(rule: dict) -> bool:
+        threshold = rule.get("burden_of_proof", 0.7)
+        # Check rule conditions against fact ledger confidence
+        for cond in rule.get("conditions", []):
+            fkey = cond.get("fact")
+            val = cond.get("value")
+            if val is True:
+                f_data = fact_ledger.get(fkey, {"confidence": 0})
+                if f_data.get("confidence", 0) < threshold:
+                    trace.append(f"Rejected {rule['name']}: Fact {fkey} confidence {f_data.get('confidence')} < threshold {threshold}")
+                    return False
+        return True
 
     # ── STEP 1: Procedure rules (إجرائية) ─────────────────────────
+    procedural_notes = []
     for rule in all_matched.get("procedure", []):
-        if rule.get("final", False):
-            return _build_result(rule, "procedure", disabled)
-        _apply_overrides(rule, all_matched, disabled)
+        if is_burden_met(rule):
+            # Capture for v7.2 report
+            procedural_notes.append({
+                "name": rule.get("name"),
+                "verdict": _get_produces(rule).get("verdict"),
+                "article": _get_produces(rule).get("article_number")
+            })
+            
+            # Apply evidence suppression first (Fruit of the poisonous tree)
+            for target in rule.get("overrides", []):
+                if target.startswith("evidence:"):
+                    e_fact = target[len("evidence:"):]
+                    if e_fact == "any":
+                        trace.append(f"🚫 Procedural Suppression: ALL evidence suppressed by {rule['name']}")
+                        for f in fact_ledger:
+                            fact_ledger[f]["confidence"] = 0.0
+                    elif e_fact in fact_ledger:
+                        trace.append(f"🚫 Procedural Suppression: Evidence {e_fact} suppressed by {rule['name']}")
+                        fact_ledger[e_fact]["confidence"] = 0.0
+
+            if rule.get("final", False):
+                res = _build_result(rule, "procedure", disabled, procedural_notes)
+                res["reasoning_trace"] = trace
+                return res
+            _apply_overrides(rule, all_matched, disabled)
 
     # ── STEP 2: Override rules (دفوع / موانع) ─────────────────────
     active_overrides = [
         r for r in all_matched.get("override", [])
-        if r["name"] not in disabled
+        if r["name"] not in disabled and is_burden_met(r)
     ]
     if active_overrides:
-        # Highest priority wins (already sorted)
         best = active_overrides[0]
         _apply_overrides(best, all_matched, disabled)
-        return _build_result(best, "override", disabled)
+        res = _build_result(best, "override", disabled, procedural_notes)
+        res["reasoning_trace"] = trace
+        return res
 
     # ── STEP 3: Exception rules ────────────────────────────────────
     active_exceptions = [
         r for r in all_matched.get("exception", [])
-        if r["name"] not in disabled
+        if r["name"] not in disabled and is_burden_met(r)
     ]
     if active_exceptions:
         best = active_exceptions[0]
         _apply_overrides(best, all_matched, disabled)
-        return _build_result(best, "exception", disabled)
+        res = _build_result(best, "exception", disabled, procedural_notes)
+        res["reasoning_trace"] = trace
+        return res
 
     # ── STEP 4: Normal rules (filtered) ───────────────────────────
     active_normals = [
         r for r in all_matched.get("normal", [])
-        if r["name"] not in disabled
+        if r["name"] not in disabled and is_burden_met(r)
     ]
     if active_normals:
-        # Avoid duplicate categories (keep highest priority only for each category)
         unique_cats = set()
         final_rules = []
         for r in active_normals:
@@ -130,18 +191,22 @@ def _run_engine(all_matched: dict) -> dict:
                 final_rules.append(r)
 
         if len(final_rules) == 1:
-            return _build_result(final_rules[0], "normal", disabled)
+            res = _build_result(final_rules[0], "normal", disabled, procedural_notes)
         else:
-            return _build_multi_result(final_rules, "normal", disabled)
+            res = _build_multi_result(final_rules, "normal", disabled, procedural_notes)
+        res["reasoning_trace"] = trace
+        return res
 
-    return _empty_result()
+    res = _empty_result()
+    res["reasoning_trace"] = trace
+    return res
 
 
 # ── Public API ─────────────────────────────────────────────────────
 
-def execute(all_matched: dict) -> dict:
+def execute(all_matched: dict, state: dict = None) -> dict:
     """Direct entry: pass dict grouped by type."""
-    return _run_engine(all_matched)
+    return _run_engine(all_matched, state)
 
 
 def resolve_conflicts(state: dict, matched_rules: list, db_overrides: list) -> dict:
@@ -152,4 +217,4 @@ def resolve_conflicts(state: dict, matched_rules: list, db_overrides: list) -> d
         if t == "substantive":
             t = "normal"
         all_matched.setdefault(t, []).append(r)
-    return _run_engine(all_matched)
+    return _run_engine(all_matched, state)

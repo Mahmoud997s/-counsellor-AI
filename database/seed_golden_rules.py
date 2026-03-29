@@ -48,90 +48,49 @@ def seed_golden_rules_final():
             am[a["num"]] = row[0]
 
     rules = [
-
-        # ══════════════════════════════════════════════════
-        # PROCEDURE PACK  (checked first — final=True stops engine)
-        # ══════════════════════════════════════════════════
         {"name": "التقادم", "art": "15", "logic": {
-            "type": "procedure", "final": True, "priority": 120,
-            "domain": "procedural", "law_type": "procedure_code",
-            "rule_type": "expiration", "pack": "procedure_pack_v1",
-            "category": "procedural_bar",
-            "overrides": [],
+            "type": "procedure", "final": True, "priority": 120, "scope": "global", "domain": "procedural", 
+            "justification": "انقضاء الحق في الدعوى الجنائية لمرور المدة المقررة قانوناً دون اتخاذ إجراء.",
             "conditions": [{"fact": "expiration", "value": True}],
-            "produces": {"verdict": "انقضاء الدعوى الجنائية بمضي المدة",
-                         "article_number": "15", "law": "قانون الإجراءات", "confidence": 0.99}}},
+            "produces": {"verdict": "انقضاء الدعوى الجنائية بمضي المدة", "article_number": "15", "law": "قانون الإجراءات"}}},
 
         {"name": "بطلان التفتيش", "art": "331", "logic": {
-            "type": "procedure", "final": True, "priority": 115,
-            "domain": "procedural", "law_type": "procedure_code",
-            "rule_type": "nullity", "pack": "procedure_pack_v1",
-            "category": "procedural_bar",
-            "overrides": [],
+            "type": "procedure", "final": True, "priority": 115, "scope": "local", "domain": "procedural",
+            "justification": "بطلان الإجراء وما يترتب عليه من آثار لعدم مراعاة الضوابط القانونية في التفتيش أو الضبط.",
             "conditions": [{"fact": "nullity_procedural", "value": True}],
-            "produces": {"verdict": "باطل - لعدم مراعاة أحكام القانون",
-                         "article_number": "331", "law": "قانون الإجراءات", "confidence": 0.98}}},
+            "produces": {"verdict": "باطل - لعدم مراعاة أحكام القانون", "article_number": "331", "law": "قانون الإجراءات"}}},
 
-        # ══════════════════════════════════════════════════
-        # OVERRIDE PACK  (checked second — highest priority wins)
-        # ══════════════════════════════════════════════════
         {"name": "الدفاع الشرعي", "art": "245", "logic": {
-            "type": "override", "final": False, "priority": 110,
-            "domain": "criminal", "law_type": "penal_code",
-            "rule_type": "self_defense", "pack": "criminal_pack_v1",
-            "category": "defense",
-            "overrides": ["*"],   # Global — disables ALL normal/exception rules
-            "conditions": [{"fact": "self_defense", "value": True},
-                           {"fact": "imminent_danger", "value": True},
-                           {"fact": "temporal_gap", "value": False}],
-            "produces": {"verdict": "البراءة - فعل مباح بالدفاع الشرعي",
-                         "article_number": "245", "law": "قانون العقوبات", "confidence": 0.98}}},
+            "type": "override", "final": False, "priority": 110, "domain": "criminal",
+            "justification": "الإعفاء من العقاب لقيام حالة الدفاع الشرعي وصد اعتداء حال وغير مشروع بتناسب في القوة.",
+            "overrides": ["*"],
+            "conditions": [{"fact": "self_defense", "value": True}, {"fact": "imminent_danger", "value": True}, {"fact": "temporal_gap", "value": False}],
+            "produces": {"verdict": "البراءة - فعل مباح بالدفاع الشرعي", "article_number": "245", "law": "قانون العقوبات"}}},
 
         {"name": "حالة الضرورة", "art": "62", "logic": {
-            "type": "override", "final": False, "priority": 108,
-            "domain": "criminal", "law_type": "penal_code",
-            "rule_type": "necessity", "pack": "criminal_pack_v1",
-            "category": "defense",
+            "type": "override", "final": False, "priority": 108, "domain": "criminal",
+            "justification": "انتفاء المسئولية الجنائية لقيام حالة ضرورة ألجأت الجاني لارتكاب الفعل لوقاية نفسه أو غيره من خطر جسيم.",
             "overrides": ["category:violent_crimes", "category:property_crimes"],
             "conditions": [{"fact": "necessity", "value": True}],
-            "produces": {"verdict": "البراءة - حالة ضرورة قانونية",
-                         "article_number": "62", "law": "قانون العقوبات", "confidence": 0.95}}},
+            "produces": {"verdict": "البراءة - حالة ضرورة قانونية", "article_number": "62", "law": "قانون العقوبات"}}},
 
-        # ══════════════════════════════════════════════════
-        # CRIMINAL PACK — NORMAL rules
-        # ══════════════════════════════════════════════════
         {"name": "القتل مع سبق الإصرار", "art": "230", "logic": {
-            "type": "normal", "priority": 99,
-            "domain": "criminal", "law_type": "penal_code",
-            "rule_type": "homicide", "pack": "criminal_pack_v1",
-            "category": "violent_crimes",
-            "overrides": [],
-            "conditions": [{"fact": "murder", "value": True},
-                           {"fact": "premeditation", "value": True}],
-            "produces": {"verdict": "الإعدام شنقاً",
-                         "article_number": "230", "law": "قانون العقوبات", "confidence": 0.99}}},
+            "type": "normal", "priority": 99, "domain": "criminal", "category": "violent_crimes",
+            "justification": "تشديد العقوبة لثبوت نية القتل المقترنة بالتفكير الهادئ والتخطيط المسبق (سبق الإصرار).",
+            "conditions": [{"fact": "murder", "value": True}, {"fact": "premeditation", "value": True}],
+            "produces": {"verdict": "الإعدام شنقاً", "article_number": "230", "law": "قانون العقوبات"}}},
 
         {"name": "القتل العمد", "art": "234", "logic": {
-            "type": "normal", "priority": 98,
-            "domain": "criminal", "law_type": "penal_code",
-            "rule_type": "homicide", "pack": "criminal_pack_v1",
-            "category": "violent_crimes",
-            "overrides": [],
-            "conditions": [{"fact": "murder", "value": True},
-                           {"fact": "intent", "value": True}],
-            "produces": {"verdict": "الإعدام",
-                         "article_number": "234", "law": "قانون العقوبات", "confidence": 0.99}}},
+            "type": "normal", "priority": 98, "domain": "criminal", "category": "violent_crimes",
+            "justification": "ثبوت نية إزهاق الروح وتوافر القصد الجنائي المباشر تجاه المجني عليه.",
+            "conditions": [{"fact": "murder", "value": True}, {"fact": "intent", "value": True}],
+            "produces": {"verdict": "الإعدام", "article_number": "234", "law": "قانون العقوبات"}}},
 
         {"name": "الشروع في القتل", "art": "234", "logic": {
-            "type": "normal", "priority": 97,
-            "domain": "criminal", "law_type": "penal_code",
-            "rule_type": "homicide", "pack": "criminal_pack_v1",
-            "category": "violent_crimes",
-            "overrides": [],
-            "conditions": [{"fact": "murder", "value": True},
-                           {"fact": "attempted", "value": True}],
-            "produces": {"verdict": "السجن المشدد",
-                         "article_number": "234", "law": "قانون العقوبات", "confidence": 0.95}}},
+            "type": "normal", "priority": 97, "domain": "criminal", "category": "violent_crimes",
+            "justification": "المسئولية عن محاولة إزهاق الروح التي لم تكتمل لسبب خارج عن إرادة الجاني.",
+            "conditions": [{"fact": "murder", "value": True}, {"fact": "attempted", "value": True}],
+            "produces": {"verdict": "السجن المشدد", "article_number": "234", "law": "قانون العقوبات"}}},
 
         {"name": "الضرب المفضي لموت", "art": "236", "logic": {
             "type": "normal", "priority": 97,

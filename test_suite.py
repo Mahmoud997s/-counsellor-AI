@@ -4,7 +4,7 @@ Test Suite - اختبار شامل للمحرك القانوني
 """
 import sys
 sys.path.insert(0, r'c:\Users\DELL\Desktop\قانون')
-from case_analyzer import analyze_case
+from case_analyzer import analyze_case, analyze_events
 
 # =============================================
 # قائمة الاختبارات
@@ -285,6 +285,94 @@ TEST_CASES = [
 ]
 
 # =============================================
+# T35 — Case X: اختبار خاص بـ Multi-Event Pipeline (v2.6)
+# =============================================
+CASE_X = """
+في يوم 5 يناير 2024، نشب خلاف بين المتهم والمجني عليه الأول بسبب نزاع مالي قديم.
+بعد يومين، قام المجني عليه الأول بتهديد المتهم عبر رسائل نصية تضمنت تهديداً صريحاً بالقتل له ولأسرته.
+في يوم 10 يناير، اعترض طريقه المجني عليه الأول وبرفقته شخصان وكان أحدهم يحمل سكين، وحاول الاعتداء على المتهم إلا أن المتهم تمكن من الفرار.
+بعد ساعات، تلقى المتهم اتصالاً يطالبه بدفع مبلغ مائي مهدداً إياه بإيذاء أسرته.
+في يوم 12 يناير، قام المتهم بمقابلة أحد أفراد المجموعة إلا أن اللقاء تحول إلى مشاجرة، قام خلالها المتهم باستخدام سكين وإصابة أحدهم إصابة بالغة.
+في يوم 13 يناير، عاد المتهم إلى منزله، إلا أن المجني عليه الأول قام باقتحام المنزل ليلاً دون إذن حاملاً سلاحاً.
+خلال المواجهة داخل المنزل قام المتهم بإطلاق عيار ناري مما أدى إلى وفاة المجني عليه الأول.
+بعد الحادث قامت الشرطة بتفتيش منزل المتهم دون إذن نيابة وضبطت سلاح المتهم وهاتفه.
+كما أقر المتهم في التحقيقات بأنه قام بإطلاق النار.
+"""
+
+def run_event_tests():
+    print("\n" + "=" * 65)
+    print("🔬 T35 — Case X: Multi-Event Pipeline Test (v2.6)")
+    print("=" * 65)
+
+    result = analyze_events(CASE_X, debug=True)
+
+    total_events = result["total_events"]
+    events = result["events"]
+    all_verdicts = result["all_verdicts"]
+    final_summary = result["final_summary"]
+
+    print(f"\n📦 Total Events Detected: {total_events}")
+    print(f"📜 All Verdicts: {all_verdicts}")
+    print(f"📋 Final Summary: {final_summary}\n")
+
+    passed = 0
+    failed = 0
+
+    def check(label, condition, detail=""):
+        nonlocal passed, failed
+        if condition:
+            print(f"  ✅ {label}")
+            passed += 1
+        else:
+            print(f"  ❌ {label}" + (f" → {detail}" if detail else ""))
+            failed += 1
+
+    # Assertion 1: Multiple events must be detected
+    check("تم تقسيم القضية لأحداث متعددة (≥ 3)",
+          total_events >= 3,
+          f"تم اكتشاف {total_events} حدث فقط")
+
+    # Assertion 2: At least one event should yield acquittal (self-defense on night of 13th)
+    has_acquittal = any("براءة" in (e.get("verdict") or "") for e in events)
+    check("وجود حكم دفاع شرعي (براءة) في أحد الأحداث",
+          has_acquittal,
+          f"الأحكام: {[e.get('verdict') for e in events]}")
+
+    # Assertion 3: At least one event should yield a conviction (assault on day 12)
+    has_conviction = any(
+        e.get("verdict") and "براءة" not in e["verdict"] and "باطل" not in e["verdict"]
+        for e in events
+    )
+    check("وجود حكم إدانة في حدث آخر (يوم 12 - الاعتداء)",
+          has_conviction,
+          f"الأحكام: {[e.get('verdict') for e in events]}")
+
+    # Assertion 4: Engine did NOT blanket-apply self-defense to ALL events (logic bug check)
+    all_acquittal = all("براءة" in (e.get("verdict") or "") for e in events if e.get("verdict"))
+    check("المحرك لم يطبق الدفاع الشرعي على كل الأحداث (لا logic bug)",
+          not all_acquittal)
+
+    # Assertion 5: Procedure (search nullity) should appear as one of the verdicts
+    has_nullity = any("باطل" in (e.get("verdict") or "") for e in events)
+    check("بطلان التفتيش يظهر في حدث مستقل (لا يمسح الباقي)",
+          has_nullity)
+
+    # Assertion 6: Multiple distinct verdicts exist (multi-count success)
+    check("تعدد الأحكام: أكثر من حكم واحد",
+          len(all_verdicts) >= 2,
+          f"حكم واحد فقط: {all_verdicts}")
+
+    print(f"\n{'=' * 65}")
+    print(f"📊 T35 النتيجة: {passed}/{passed+failed} شرط صحيح")
+    if failed == 0:
+        print("🏆 Case X اجتازها المحرك بكفاءة مثالية!")
+    elif passed >= 4:
+        print("✅ Case X — المحرك يفهم التعقيد، يحتاج تحسينات بسيطة")
+    else:
+        print("⚠️  Case X — يحتاج مراجعة منطق التقسيم والأولويات")
+    print("=" * 65)
+
+# =============================================
 # تشغيل الاختبارات
 # =============================================
 def run_tests():
@@ -353,3 +441,4 @@ def run_tests():
 
 if __name__ == "__main__":
     run_tests()
+    run_event_tests()

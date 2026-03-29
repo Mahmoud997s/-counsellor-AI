@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables & secrets
+.env
+*.env
+config_local.py
+
+# Logs & temp
+*.log
+/tmp/
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Database dumps
+*.sql
+*.dump
+*.backup
+
+# Debug/research scripts (temporary)
+debug_*.py
+research_*.py
+inspect_*.py
+check_*.py
+repair_*.py
+migrate_*.py
+extract_*.py
+identify_*.py
+test_norm.py
+test_t03*.py
+unified_seeder.py

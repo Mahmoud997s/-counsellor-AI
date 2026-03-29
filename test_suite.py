@@ -146,6 +146,33 @@ TEST_CASES = [
         "expected_facts": ["search", "expiration"],
         "category": "Procedure"
     },
+
+    # ════ Override vs Override ════
+    {
+        "id": "T17",
+        "case": "تم إكراه المتهم وتهديده لقتل شخص واضطرار لذلك، لكن المجني عليه هجم عليه فدافع عن نفسه وقتله (إكراه + دفاع شرعي)",
+        "expected_verdict_contains": "البراءة",
+        "expected_facts": ["murder", "by_force", "self_defense", "necessity"],
+        "category": "Override vs Override"
+    },
+
+    # ════ Procedure vs Override ════
+    {
+        "id": "T18",
+        "case": "فتشوا منزله بلا إذن (بطلان) ووجدوا جثة هجم صاحبها بسكين فدافع عن نفسه",
+        "expected_verdict_contains": "باطل",
+        "expected_facts": ["search", "nullity_procedural", "murder", "self_defense"],
+        "category": "Procedure vs Override"
+    },
+
+    # ════ Global Override Robustness ════
+    {
+        "id": "T19",
+        "case": "عاد المتهم ليلاً مع عصابة وسرقوا المحل وضربوا الحارس ولكن تبين وجود حالة ضرورة قصوى",
+        "expected_verdict_contains": "البراءة",
+        "expected_facts": ["theft", "group", "at_night", "assault", "necessity"],
+        "category": "Global Override"
+    },
 ]
 
 # =============================================

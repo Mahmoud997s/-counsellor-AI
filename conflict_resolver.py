@@ -1,64 +1,123 @@
 """
-Conflict Resolver - محرك حل التعارض القانوني (نسخة البيانات)
-يستقبل القواعد المطابقة من قاعدة البيانات ويطبّق منطق الإلغاء أو التعديل
+Universal Legal Rule Engine — Data-Driven Edition
+
+Pipeline:
+  1. procedure  → final=True stops engine immediately
+  2. override   → disables targets via "overrides" array (*, category:X, name)
+  3. exception  → special-case rules
+  4. normal     → priority competition among active (non-disabled) rules
 """
 
-def resolve_conflicts(state: dict, matched_rules: list, db_overrides: list) -> dict:
-    result = {
-        "has_conflict": False,
-        "conflict_rule": None,
-        "final_verdict": None,
-        "reason": None,
-        "modifier": None,
-        "article": None,
-        "law": None
-    }
-    
-    # 1. البحث عن قواعد الإلغاء/التجاوز الكامل (Overrides)
-    overrides = [r for r in db_overrides if r.get("type") == "override"]
-    overrides.sort(key=lambda x: x.get("priority", 0), reverse=True)
-    
-    for ovr in overrides:
-        target_rules = ovr.get("overrides", []) or []
-        ovr_name = ovr.get("rule") or ovr.get("name") or "Unnamed Override"
-        
-        active_rules = [r.get("rule", "") for r in matched_rules]
-        blocked_outcomes = ovr.get("blocks_outcomes", []) or []
-        active_outcomes = [r.get("punishment_type", "") for r in matched_rules]
-        
-        should_trigger = False
-        
-        # FIXED: GLOBAL OVERRIDE triggers even if SUBSTANTIVE is missing (Default)
-        if not target_rules and not blocked_outcomes:
-            should_trigger = True
+
+def _get_produces(rule: dict) -> dict:
+    """Support both 'produces' (new) and 'outcomes' (legacy)."""
+    return rule.get("produces") or rule.get("outcomes") or {}
+
+
+def _apply_overrides(rule: dict, all_matched: dict, disabled: set):
+    """Populate disabled set from rule's 'overrides' array.
+    Supports:  "*"            → global wildcard (all normal + exception)
+               "category:X"  → all rules with matching category
+               "rule_name"   → specific rule name (safe fallback)
+    """
+    for target in rule.get("overrides", []):
+        if target == "*":
+            for g in ("normal", "exception"):
+                for r in all_matched.get(g, []):
+                    disabled.add(r["name"])
+        elif target.startswith("category:"):
+            cat = target[len("category:"):]
+            for group in all_matched.values():
+                for r in group:
+                    if r.get("category") == cat:
+                        disabled.add(r["name"])
         else:
-            # Specific Target Lookup
-            for tr in target_rules:
-                if any(tr.lower() in ar.lower() for ar in active_rules):
-                    should_trigger = True
-                    break
-            if not should_trigger and blocked_outcomes:
-                if any(bo in active_outcomes for bo in blocked_outcomes):
-                    should_trigger = True
-            
-        if should_trigger:
-            outcomes = ovr.get("outcomes", {})
-            result["has_conflict"] = True
-            result["conflict_rule"] = ovr_name
-            result["final_verdict"] = outcomes
-            result["article"] = outcomes.get("article_number")
-            result["law"] = outcomes.get("law")
-            return result
+            disabled.add(target)  # Named — safe fallback, ignore if not found
 
-    # 2. البحث عن القواعد المُعدّلة (Modifiers)
-    modifiers = [r for r in db_overrides if r.get("type") == "modifier"]
-    if modifiers:
-        best_mod = max(modifiers, key=lambda x: x.get("priority", 0))
-        mod_outcomes = best_mod.get("outcomes", {})
-        result["has_conflict"] = True
-        result["conflict_rule"] = best_mod.get("rule") or best_mod.get("name")
-        result["modifier"] = best_mod.get("modifier")
-        result["article"] = mod_outcomes.get("article_number")
-        result["law"] = mod_outcomes.get("law")
 
-    return result
+def _build_result(rule: dict, applied_type: str, disabled: set) -> dict:
+    produces = _get_produces(rule)
+    return {
+        "has_conflict":   True,
+        "conflict_rule":  rule.get("name") or rule.get("rule", ""),
+        "final_verdict":  produces,
+        "article":        produces.get("article_number"),
+        "law":            produces.get("law"),
+        "modifier":       None,
+        "reason":         rule.get("name", ""),
+        "disabled_rules": sorted(disabled),
+        "applied_type":   applied_type,
+        "confidence":     produces.get("confidence", 0.9),
+    }
+
+
+def _empty_result() -> dict:
+    return {
+        "has_conflict": False, "conflict_rule": None,
+        "final_verdict": None, "article": None, "law": None,
+        "modifier": None, "reason": None,
+        "disabled_rules": [], "applied_type": None,
+    }
+
+
+def _run_engine(all_matched: dict) -> dict:
+    # Sort every group by priority (highest first)
+    for group in all_matched.values():
+        group.sort(key=lambda r: r.get("priority", 0), reverse=True)
+
+    disabled = set()
+
+    # ── STEP 1: Procedure rules (إجرائية) ─────────────────────────
+    for rule in all_matched.get("procedure", []):
+        if rule.get("final", False):
+            return _build_result(rule, "procedure", disabled)
+        _apply_overrides(rule, all_matched, disabled)
+
+    # ── STEP 2: Override rules (دفوع / موانع) ─────────────────────
+    active_overrides = [
+        r for r in all_matched.get("override", [])
+        if r["name"] not in disabled
+    ]
+    if active_overrides:
+        # Highest priority wins (already sorted)
+        best = active_overrides[0]
+        _apply_overrides(best, all_matched, disabled)
+        return _build_result(best, "override", disabled)
+
+    # ── STEP 3: Exception rules ────────────────────────────────────
+    active_exceptions = [
+        r for r in all_matched.get("exception", [])
+        if r["name"] not in disabled
+    ]
+    if active_exceptions:
+        best = active_exceptions[0]
+        _apply_overrides(best, all_matched, disabled)
+        return _build_result(best, "exception", disabled)
+
+    # ── STEP 4: Normal rules (filtered) ───────────────────────────
+    active_normals = [
+        r for r in all_matched.get("normal", [])
+        if r["name"] not in disabled
+    ]
+    if active_normals:
+        return _build_result(active_normals[0], "normal", disabled)
+
+    return _empty_result()
+
+
+# ── Public API ─────────────────────────────────────────────────────
+
+def execute(all_matched: dict) -> dict:
+    """Direct entry: pass dict grouped by type."""
+    return _run_engine(all_matched)
+
+
+def resolve_conflicts(state: dict, matched_rules: list, db_overrides: list) -> dict:
+    """Legacy-compatible entry point — merges both lists then runs engine."""
+    all_matched: dict = {"procedure": [], "override": [], "exception": [], "normal": []}
+    for r in matched_rules + db_overrides:
+        t = r.get("type", "normal")
+        if t == "substantive":
+            t = "normal"
+        all_matched.setdefault(t, []).append(r)
+    return _run_engine(all_matched)
